@@ -1,0 +1,112 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id              String             @id @default(cuid())
+  email           String             @unique
+  passwordHash    String
+  name            String
+  profilePicture  String?
+  description     String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  availabilitySlots AvailabilitySlot[]
+  tutoringPosts     TutoringPost[]
+
+  tutorBookings     Booking[]        @relation("TutorBookings")
+  studentBookings   Booking[]        @relation("StudentBookings")
+
+  tutorRatings      Rating[]         @relation("TutorRatings")
+  studentRatings    Rating[]         @relation("StudentRatings")
+  
+  availabilityExceptions AvailabilityException[]
+}
+
+model AvailabilityException {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        DateTime  // A konkrét nap (pl. 2024-10-30 éjfél)
+  startTime   String    // "HH:mm"
+  endTime     String    // "HH:mm"
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, date, startTime, endTime])
+}
+
+model AvailabilitySlot {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayOfWeek     Int       // 1-7, Monday=1
+  startTime     String    // "HH:mm"
+  endTime       String    // "HH:mm"
+  isRecurring   Boolean   @default(true)
+  specificDate  DateTime? // used when isRecurring is false for one-off slots
+  createdAt     DateTime  @default(now())
+}
+
+model TutoringPost {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  subject     String
+  description String
+  gradeLevel  String
+  priceNote   String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  bookings    Booking[]
+}
+
+model Booking {
+  id          String    @id @default(cuid())
+  postId      String
+  post        TutoringPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  tutorId     String
+  tutor       User      @relation("TutorBookings", fields: [tutorId], references: [id], onDelete: Cascade)
+  
+  studentId   String
+  student     User      @relation("StudentBookings", fields: [studentId], references: [id], onDelete: Cascade)
+  
+  date        DateTime
+  startTime   String
+  endTime     String
+  status      String    @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  rating      Rating?
+}
+
+model Rating {
+  id          String    @id @default(cuid())
+  
+  bookingId   String    @unique
+  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  tutorId     String
+  tutor       User      @relation("TutorRatings", fields: [tutorId], references: [id], onDelete: Cascade)
+  
+  studentId   String
+  student     User      @relation("StudentRatings", fields: [studentId], references: [id], onDelete: Cascade)
+  
+  subject     String
+  stars       Int
+  comment     String?
+  
+  createdAt   DateTime  @default(now())
+}
